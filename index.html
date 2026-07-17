@@ -1,5 +1,7 @@
 <meta charset="utf-8">
 <title>บันทึกงานไรเดอร์</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer onload="window.__onLeaflet&&window.__onLeaflet()"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
   :root{
@@ -110,6 +112,15 @@
   /* ---------- map ---------- */
   #mapWrap{position:relative; overflow:hidden}
   #mapCv{display:block; width:100%; border-radius:13px}
+  #leafletMap{display:none; position:relative; z-index:0; border-radius:13px 13px 0 0}
+  .leaflet-container{font-family:inherit; background:var(--bg)}
+  .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--surface); color:var(--ink)}
+  .leaflet-popup-content a{color:var(--accent); font-weight:600}
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])) .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6)}
+  }
+  :root[data-theme="dark"] .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.6)}
+  :root[data-theme="light"] .leaflet-tile{filter:none}
   .mapMeta{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-top:1px solid var(--line); font-size:12.5px; color:var(--muted)}
   #ptInfo{padding:12px 14px; border-top:1px solid var(--line); font-size:14px; display:none}
   .zone{display:flex; align-items:center; gap:12px; padding:13px 14px; border-top:1px solid var(--line)}
@@ -201,6 +212,7 @@
   <section class="view" id="view-map">
     <div class="chips" id="mapChips"></div>
     <div class="card" id="mapWrap">
+      <div id="leafletMap"></div>
       <canvas id="mapCv"></canvas>
       <div id="ptInfo"></div>
       <div class="mapMeta">
@@ -504,8 +516,57 @@ function clusterZones(pts){
   return zonesArr.sort(function(a,b){return b.n-a.n});
 }
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()}
-function drawMap(){
+/* real street map (Leaflet/OpenStreetMap) when it can load; canvas fallback otherwise */
+function drawMap(){ if(window.L) drawMapLeaflet(); else drawMapCanvas(); }
+var lMap=null, lLayer=null;
+function drawMapLeaflet(){
+  var wrap=$('mapWrap'), div=$('leafletMap');
+  $('mapCv').style.display='none'; div.style.display='block';
+  div.style.height=Math.round((wrap.clientWidth-2)*0.92)+'px';
+  $('ptInfo').style.display='none';
+  var pts=mapPts();
+  if(!lMap){
+    lMap=L.map(div);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(lMap);
+    L.control.scale({metric:true, imperial:false}).addTo(lMap);
+    lLayer=L.layerGroup().addTo(lMap);
+    lMap.setView([13.7563,100.5018],11);
+  }
+  lMap.invalidateSize();
+  lLayer.clearLayers();
+  var acc=css('--accent');
+  var cells=clusterZones(pts);
+  cells.forEach(function(c){
+    if(c.n<2) return;
+    L.circle([c.lat,c.lng],{radius:c.rKm*1000, color:acc, weight:1.5, opacity:.5,
+      fillColor:acc, fillOpacity:.12}).addTo(lLayer);
+  });
+  pts.forEach(function(j){
+    L.circleMarker([j.lat,j.lng],{radius:6, color:css('--surface'), weight:2, fillColor:acc, fillOpacity:1})
+      .bindPopup('รับงาน '+dayLabel(dayKey(j.at))+' '+timeStr(j.at)+' น.'+
+        (j.amt!=null?'<br>รายรับ '+baht(j.amt):'<br>ยังไม่จบ')+
+        '<br><a target="_blank" rel="noopener" href="'+mapsUrl(j.lat,j.lng)+'">เปิดใน Google Maps ›</a>')
+      .addTo(lLayer);
+  });
+  if(myLoc){
+    L.circleMarker([myLoc.lat,myLoc.lng],{radius:7, color:'#fff', weight:2, fillColor:'#2a78d6', fillOpacity:1})
+      .bindPopup('ตำแหน่งของคุณ').addTo(lLayer);
+  }
+  if(pts.length){
+    var b=L.latLngBounds(pts.map(function(j){return [j.lat,j.lng]}));
+    if(myLoc) b.extend([myLoc.lat,myLoc.lng]);
+    lMap.fitBounds(b,{padding:[30,30], maxZoom:15});
+  }else if(myLoc){
+    lMap.setView([myLoc.lat,myLoc.lng],14);
+  }
+  $('scaleLbl').textContent=pts.length+' จุด';
+  renderZones(cells);
+}
+window.__onLeaflet=function(){ if($('view-map').classList.contains('active')) drawMap(); };
+function drawMapCanvas(){
   var cv=$('mapCv'), wrap=$('mapWrap');
+  $('leafletMap').style.display='none'; cv.style.display='block';
   var pts=mapPts();
   $('ptInfo').style.display='none';
   var W=wrap.clientWidth-2, H=Math.round(W*0.92);
@@ -576,12 +637,18 @@ function renderZones(cells){
   var top=cells.filter(function(c){return c.n>=1}).slice(0,5);
   $('zoneList').innerHTML = top.length ? top.map(function(c,i){
     var dist = myLoc ? ' · ห่างจากคุณ '+haversine(myLoc.lat,myLoc.lng,c.lat,c.lng).toFixed(1)+' กม.' : '';
-    return '<div class="zone"><div class="rank">'+(i+1)+'</div>'+
+    return '<div class="zone" data-lat="'+c.lat+'" data-lng="'+c.lng+'"><div class="rank">'+(i+1)+'</div>'+
       '<div class="info"><div class="cnt">'+c.n+' งาน</div>'+
       '<div class="dist">'+c.lat.toFixed(4)+', '+c.lng.toFixed(4)+dist+'</div></div>'+
       '<a class="maplink" target="_blank" rel="noopener" href="'+mapsUrl(c.lat,c.lng)+'">เปิดแผนที่ ›</a></div>';
   }).join('') : '<div class="empty">ยังไม่มีข้อมูล — เริ่มรับงานก่อน แล้วโซนเด็ดจะโผล่ที่นี่</div>';
 }
+$('zoneList').addEventListener('click',function(e){
+  if(e.target.closest('a')) return; /* let the Google Maps link work normally */
+  var z=e.target.closest('.zone'); if(!z||!window.L||!lMap) return;
+  lMap.setView([+z.dataset.lat,+z.dataset.lng],15);
+  window.scrollTo({top:0,behavior:'smooth'});
+});
 $('mapCv').addEventListener('click',function(e){
   var r=this.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
   var best=null,bd=22;
