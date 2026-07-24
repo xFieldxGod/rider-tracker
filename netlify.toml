@@ -4,11 +4,6 @@
   functions = "netlify/functions"
 
 [[redirects]]
-  from = "/api/fuel-price"
-  to = "/.netlify/functions/fuel-price"
-  status = 200
-
-[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

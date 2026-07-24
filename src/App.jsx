@@ -514,7 +514,7 @@ export default function App() {
     setIsFetchingFuelPrice(true);
     setFuelPriceFetchError(false);
     try {
-      const res = await fetch('/api/fuel-price');
+      const res = await fetch('/.netlify/functions/fuel-price');
       if (!res.ok) throw new Error('bad_response');
       const data = await res.json();
       const priceByType = { gasohol95: data.gasohol95, gasohol91: data.gasohol91, gasoholE20: data.gasoholE20 };
