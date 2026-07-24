@@ -35,20 +35,25 @@ function playGoalReachedSound() {
   }
 }
 
-// Dynamic Rider Location Marker with Customizable Size (24px to 56px), rotates to face travel direction
-const createRiderIcon = (size = 36, heading = null) => L.divIcon({
-  className: 'leaflet-custom-icon',
-  html: `
-    <div class="relative flex items-center justify-center z-50">
-      <span style="width: ${size}px; height: ${size}px;" class="animate-ping absolute inline-flex rounded-full bg-[#22c55e] opacity-60"></span>
-      <div style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.45)}px; transform: rotate(${heading ?? 0}deg); transition: transform 0.3s ease-out;" class="bg-[#22c55e] text-white rounded-full border-2 border-white shadow-xl flex items-center justify-center font-black relative z-50">
-        🛵
+// Dynamic Rider Location Marker: image sits above a pin arrow that points at the exact coordinate
+const createRiderIcon = (size = 36, heading = null) => {
+  const arrowH = 8; // height of the pointer arrow below the image
+  return L.divIcon({
+    className: 'leaflet-custom-icon',
+    html: `
+      <div class="relative flex flex-col items-center">
+        <div class="relative flex items-center justify-center">
+          <span style="width: ${size}px; height: ${size}px;" class="animate-ping absolute inline-flex rounded-full bg-[#22c55e] opacity-60"></span>
+          <img src="/rider.png" alt="rider" style="width: ${size}px; height: auto; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));" class="relative z-50 select-none" draggable="false" />
+        </div>
+        <div style="width:0;height:0;margin-top:-2px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:${arrowH}px solid #22c55e;filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></div>
       </div>
-    </div>
-  `,
-  iconSize: [size, size],
-  iconAnchor: [size / 2, size / 2]
-});
+    `,
+    iconSize: [size, size + arrowH],
+    // Anchor at the very tip of the arrow = the real GPS point
+    iconAnchor: [size / 2, size + arrowH]
+  });
+};
 
 // Active Job Pin with Dynamic Vertical Stacking Offset (idx * 26px)
 const createJobIcon = (num, idx) => {
@@ -89,9 +94,9 @@ const createCompactClusterIcon = (count) => L.divIcon({
 const createHotspotIcon = (rank, count) => L.divIcon({
   className: 'leaflet-custom-icon',
   html: `
-    <div className="translate-y-4 flex flex-col items-center">
-      <div className="w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-b-4 border-b-orange-500 -mb-0.5"></div>
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold px-2.5 py-0.5 rounded-full shadow-lg border-2 border-white text-[10px] flex items-center gap-1 whitespace-nowrap">
+    <div class="translate-y-4 flex flex-col items-center">
+      <div class="w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-b-4 border-b-orange-500 -mb-0.5"></div>
+      <div class="bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold px-2.5 py-0.5 rounded-full shadow-lg border-2 border-white text-[10px] flex items-center gap-1 whitespace-nowrap">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.4 2.3 2 4.2 4 5.5 2.5 1.7 4 4.5 4 7.5 0 4.4-3.6 8-8 8s-8-3.6-8-8c0-2.4 1.1-4.7 3-6.1C8.8 7.5 11 4.5 12 2z"/></svg>
         <span>โซน ${rank} (${count} งาน)</span>
       </div>
@@ -312,6 +317,23 @@ export default function App() {
   const [userCoords, setUserCoords] = useState([13.7563, 100.5018]);
   const [userHeading, setUserHeading] = useState(null);
   const prevCoordsRef = useRef(null);
+  // Tracks which calendar day the odometer distance belongs to, so it can reset
+  // at midnight even while the app stays open (not only on a fresh app load).
+  const kmDateRef = useRef(new Date().toDateString());
+
+  // Resets the odometer to 0 when the calendar day changes. Called from both the
+  // GPS watch (rollover mid-drive) AND a standalone timer (rollover while parked /
+  // GPS paused), so today's distance never inherits yesterday's regardless of
+  // whether new GPS fixes are arriving. Returns true if a reset happened.
+  const resetOdometerIfNewDay = () => {
+    const today = new Date().toDateString();
+    if (kmDateRef.current !== today) {
+      kmDateRef.current = today;
+      setTodayKm(0);
+      return true;
+    }
+    return false;
+  };
   const [isLiveTracking, setIsLiveTracking] = useState(false);
   const [focusedCoords, setFocusedCoords] = useState(null);
   const [mapZoom, setMapZoom] = useState(17);
@@ -383,7 +405,17 @@ export default function App() {
           isInitialCloudSyncRef.current = true;
           if (cloudData.jobs) setJobs(cloudData.jobs);
           if (cloudData.goal) setGoal(cloudData.goal);
-          if (cloudData.todayKm !== undefined) setTodayKm(cloudData.todayKm);
+          // Only restore the odometer if the cloud value is from TODAY. Otherwise a
+          // value saved yesterday would overwrite today's fresh 0 and dodge every
+          // rollover check (kmDateRef is already today at mount), inflating today's
+          // distance and fuel cost. Stale value -> keep 0 for the new day.
+          if (
+            cloudData.todayKm !== undefined &&
+            cloudData.updatedAt &&
+            new Date(cloudData.updatedAt).toDateString() === new Date().toDateString()
+          ) {
+            setTodayKm(cloudData.todayKm);
+          }
           if (cloudData.kmPerLiter) setKmPerLiter(cloudData.kmPerLiter);
           if (cloudData.fuelPricePerLiter) setFuelPricePerLiter(cloudData.fuelPricePerLiter);
           if (cloudData.riderIconSize) setRiderIconSize(cloudData.riderIconSize);
@@ -441,8 +473,15 @@ export default function App() {
         (pos) => {
           const newCoords = [pos.coords.latitude, pos.coords.longitude];
 
+          // DAY ROLLOVER: if midnight passed while the app stayed open, reset the
+          // odometer first so today's distance never carries over from yesterday.
+          // On the rollover tick we skip only the distance accumulation (there is
+          // no valid "previous point" for today yet) but still update position and
+          // heading below, so the marker stays live.
+          const didReset = resetOdometerIfNewDay();
+
           // ODOMETER ACCUMULATION LOGIC (only counts distance while a shift is active)
-          if (isShiftActiveRef.current && prevCoordsRef.current) {
+          if (!didReset && isShiftActiveRef.current && prevCoordsRef.current) {
             const distKm = haversine(
               prevCoordsRef.current[0],
               prevCoordsRef.current[1],
@@ -475,6 +514,14 @@ export default function App() {
         watchIdRef.current = null;
       }
     };
+  }, []);
+
+  // MIDNIGHT ODOMETER RESET (independent of GPS): checks once a minute so the day
+  // rolls over even when the phone is parked, GPS is paused, or the tab is idle in
+  // the background — cases where no watchPosition tick would ever fire the reset.
+  useEffect(() => {
+    const intervalId = setInterval(resetOdometerIfNewDay, 60000);
+    return () => clearInterval(intervalId);
   }, []);
 
   // LIVE SHIFT DURATION TICKER (updates every minute while a shift is active)
@@ -625,13 +672,20 @@ export default function App() {
     if (historyToDelete !== null) {
       const targetJob = jobs.find(j => j.id === historyToDelete);
       if (targetJob) {
-        const targetBatchId = targetJob.batchId;
-        const targetDone = targetJob.done;
+        // A finished batch is stored as several rows that share the SAME batchId
+        // AND the SAME `done` timestamp (they were all closed in one action).
+        // batchId alone is reused across days/shifts, so match on BOTH together —
+        // this removes the money-bearing row and its zero-amt siblings as a unit,
+        // and never touches an unrelated batch that happens to reuse the id.
+        const { batchId: targetBatchId, done: targetDone } = targetJob;
 
         setJobs(jobs.filter(j => {
           if (j.id === historyToDelete) return false;
-          if (targetBatchId && j.batchId === targetBatchId && j.done !== null) return false;
-          if (targetDone && j.done === targetDone) return false;
+          if (
+            targetDone != null &&
+            j.done === targetDone &&
+            (j.batchId ?? null) === (targetBatchId ?? null)
+          ) return false;
           return true;
         }));
       }
@@ -672,14 +726,25 @@ export default function App() {
   // so `doneJobs` (money-bearing rows) undercounts orders. Use `completedJobs` for
   // anything that counts individual orders (map pins, history list, avg per order).
   const doneJobs = jobs.filter(j => j.done !== null && j.amt > 0);
-  const completedJobs = jobs.filter(j => j.done !== null);
+  // Every completed order row, but drop ORPHANED zero-amt batch rows — a batch's
+  // zero-amt siblings are only meaningful while their money-bearing row (same
+  // batchId + done) still exists. Without this, deleting the money row from
+  // history would leave stranded rows that keep inflating hotspots/map pins even
+  // though history shows nothing. Keeps hotspots and history from disagreeing.
+  const moneyBatchKeys = new Set(
+    doneJobs.map(j => `${j.batchId ?? 'x'}|${j.done}`)
+  );
+  const completedJobs = jobs.filter(j => {
+    if (j.done === null) return false;
+    if (j.amt > 0) return true;
+    return moneyBatchKeys.has(`${j.batchId ?? 'x'}|${j.done}`);
+  });
   const todayDone = doneJobs.filter(j => new Date(j.done).toDateString() === new Date().toDateString());
   const todaySum = todayDone.reduce((acc, j) => acc + (j.amt || 0), 0);
   const todayNetProfit = todaySum > 0 ? todaySum - calculatedFuelCost : 0;
   const progressPct = Math.min(100, Math.max(0, (todaySum / goal) * 100));
 
   const totalSum = doneJobs.reduce((acc, j) => acc + (j.amt || 0), 0);
-  const avgJob = completedJobs.length ? (totalSum / completedJobs.length).toFixed(0) : 0;
 
   // AUTOMATIC HOURLY EARNINGS CALCULATION
   const todayAllJobs = jobs.filter(j => new Date(j.at || j.done).toDateString() === new Date().toDateString());
@@ -1347,7 +1412,7 @@ export default function App() {
                 <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">ประวัติการรับงานทั้งหมด ({doneJobs.length})</h2>
                 
                 {doneJobs.length > 0 && (
-                  <button 
+                  <button
                     onClick={() => setIsClearAllHistoryModalOpen(true)}
                     className="text-[10px] font-extrabold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md border border-red-200 transition-colors flex items-center gap-1"
                   >
