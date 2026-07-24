@@ -772,65 +772,69 @@ export default function App() {
           </div>
         </div>
 
-        {/* GPS DISTANCE ODOMETER BADGE */}
-        <div className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium mb-3 bg-slate-100 text-slate-500">
-          <Gauge size={12} className="text-[#22c55e]" />
-          <span>{todayKm} กม. วันนี้</span>
-        </div>
+        {activeTab === 'home' && (
+          <>
+            {/* GPS DISTANCE ODOMETER BADGE */}
+            <div className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium mb-3 bg-slate-100 text-slate-500">
+              <Gauge size={12} className="text-[#22c55e]" />
+              <span>{todayKm} กม. วันนี้</span>
+            </div>
 
-        {currentShiftStart && (
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#15803d] mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse"></span>
-            <span>กำลังทำงาน {shiftElapsedLabel} ชม.</span>
-          </div>
-        )}
-
-        {/* HERO EARNINGS CARD */}
-        <div className="rounded-[20px] p-5 bg-gradient-to-br from-[#22c55e] to-[#16a34a] shadow-[0_10px_24px_-10px_rgba(22,163,74,0.55)]">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[13px] font-semibold text-white/80">รายได้วันนี้</span>
-            {todayAllJobs.length > 0 && todaySum > 0 && (
-              <div className="flex items-center gap-1 bg-white/20 rounded-xl pl-1.5 pr-2.5 py-0.5">
-                <Clock size={11} className="text-white" />
-                <span className="text-[11px] font-bold text-white">{workHoursFormatted} ชม. · ฿{hourlyEarnings}/ชม.</span>
+            {currentShiftStart && (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#15803d] mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse"></span>
+                <span>กำลังทำงาน {shiftElapsedLabel} ชม.</span>
               </div>
             )}
-          </div>
 
-          <div className="text-[34px] font-extrabold text-white tracking-tight leading-tight mb-1">
-            ฿{todaySum.toLocaleString()}
-          </div>
+            {/* HERO EARNINGS CARD */}
+            <div className="rounded-[20px] p-5 bg-gradient-to-br from-[#22c55e] to-[#16a34a] shadow-[0_10px_24px_-10px_rgba(22,163,74,0.55)]">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[13px] font-semibold text-white/80">รายได้วันนี้</span>
+                {todayAllJobs.length > 0 && todaySum > 0 && (
+                  <div className="flex items-center gap-1 bg-white/20 rounded-xl pl-1.5 pr-2.5 py-0.5">
+                    <Clock size={11} className="text-white" />
+                    <span className="text-[11px] font-bold text-white">{workHoursFormatted} ชม. · ฿{hourlyEarnings}/ชม.</span>
+                  </div>
+                )}
+              </div>
 
-          {calculatedFuelCost > 0 && todaySum > 0 && (
-            <div className="text-[12px] font-semibold text-white/85 mb-3.5">
-              กำไรสุทธิ ฿{todayNetProfit.toLocaleString()} <span className="text-white/60">(หักค่าน้ำมัน ฿{calculatedFuelCost})</span>
-            </div>
-          )}
+              <div className="text-[34px] font-extrabold text-white tracking-tight leading-tight mb-1">
+                ฿{todaySum.toLocaleString()}
+              </div>
 
-          <div className="flex gap-5 mb-4">
-            <div>
-              <div className="text-[11px] text-white/70 mb-0.5">ระยะทาง</div>
-              <div className="text-sm font-bold text-white">{todayKm} กม.</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-white/70 mb-0.5">งานที่วิ่ง</div>
-              <div className="text-sm font-bold text-white">{todayDone.length} งาน</div>
-            </div>
-          </div>
+              {calculatedFuelCost > 0 && todaySum > 0 && (
+                <div className="text-[12px] font-semibold text-white/85 mb-3.5">
+                  กำไรสุทธิ ฿{todayNetProfit.toLocaleString()} <span className="text-white/60">(หักค่าน้ำมัน ฿{calculatedFuelCost})</span>
+                </div>
+              )}
 
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11.5px] text-white/80 font-semibold">เป้าหมายวันนี้</span>
-            <span className="text-[11.5px] text-white font-bold">฿{todaySum.toLocaleString()} / ฿{goal.toLocaleString()}</span>
-          </div>
-          <div className="h-[7px] rounded-full bg-white/25">
-            <div
-              className="h-[7px] rounded-full bg-white transition-all duration-500 ease-out relative"
-              style={{ width: `${progressPct}%` }}
-            >
-              {progressPct >= 100 && <div className="absolute inset-0 bg-white/40 animate-pulse rounded-full"></div>}
+              <div className="flex gap-5 mb-4">
+                <div>
+                  <div className="text-[11px] text-white/70 mb-0.5">ระยะทาง</div>
+                  <div className="text-sm font-bold text-white">{todayKm} กม.</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-white/70 mb-0.5">งานที่วิ่ง</div>
+                  <div className="text-sm font-bold text-white">{todayDone.length} งาน</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11.5px] text-white/80 font-semibold">เป้าหมายวันนี้</span>
+                <span className="text-[11.5px] text-white font-bold">฿{todaySum.toLocaleString()} / ฿{goal.toLocaleString()}</span>
+              </div>
+              <div className="h-[7px] rounded-full bg-white/25">
+                <div
+                  className="h-[7px] rounded-full bg-white transition-all duration-500 ease-out relative"
+                  style={{ width: `${progressPct}%` }}
+                >
+                  {progressPct >= 100 && <div className="absolute inset-0 bg-white/40 animate-pulse rounded-full"></div>}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </header>
 
 
