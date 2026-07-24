@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #22c55e;
+  --color-primary-foreground: #ffffff;
+  --color-background: #f0fdf4;
+  --color-surface: #ffffff;
+  --color-money: #22c55e;
+  --color-danger: #ef4444;
+}
+
+body {
+  background-color: #f0fdf4;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Remove Leaflet default square background from custom divIcons */
+.leaflet-custom-icon {
+  background: transparent !important;
+  border: none !important;
+}

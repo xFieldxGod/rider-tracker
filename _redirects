@@ -1,0 +1,2 @@
+# Netlify Drag & Drop config: rewrite root requests to /dist/
+/*    /dist/:splat    200
