@@ -667,14 +667,19 @@ export default function App() {
   };
 
   // REACTIVE STATS COMPUTATION
+  // Batch orders are stored as one job row per order, but only the first row in a
+  // finished batch carries the money (amt > 0) to avoid double-counting revenue —
+  // so `doneJobs` (money-bearing rows) undercounts orders. Use `completedJobs` for
+  // anything that counts individual orders (map pins, history list, avg per order).
   const doneJobs = jobs.filter(j => j.done !== null && j.amt > 0);
+  const completedJobs = jobs.filter(j => j.done !== null);
   const todayDone = doneJobs.filter(j => new Date(j.done).toDateString() === new Date().toDateString());
   const todaySum = todayDone.reduce((acc, j) => acc + (j.amt || 0), 0);
   const todayNetProfit = todaySum > 0 ? todaySum - calculatedFuelCost : 0;
   const progressPct = Math.min(100, Math.max(0, (todaySum / goal) * 100));
 
   const totalSum = doneJobs.reduce((acc, j) => acc + (j.amt || 0), 0);
-  const avgJob = doneJobs.length ? (totalSum / doneJobs.length).toFixed(0) : 0;
+  const avgJob = completedJobs.length ? (totalSum / completedJobs.length).toFixed(0) : 0;
 
   // AUTOMATIC HOURLY EARNINGS CALCULATION
   const todayAllJobs = jobs.filter(j => new Date(j.at || j.done).toDateString() === new Date().toDateString());
@@ -691,8 +696,8 @@ export default function App() {
   // SMART ANALYTICS DATA
   const smartAnalytics = computeSmartRiderAnalytics(doneJobs);
 
-  // HOTSPOT ZONES CALCULATED STRICTLY FROM COMPLETED JOBS WITH VALID AMOUNT > 0
-  const completedJobsWithLoc = doneJobs.filter(j => j.lat != null && j.lng != null);
+  // HOTSPOT ZONES: count every completed order (not just the money-bearing batch row)
+  const completedJobsWithLoc = completedJobs.filter(j => j.lat != null && j.lng != null);
   const hotspotZones = clusterZones(completedJobsWithLoc);
 
   // WEEKLY INCOME BREAKDOWN DATA FOR CHARTS
