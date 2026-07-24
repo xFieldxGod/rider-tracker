@@ -236,9 +236,10 @@ export default function App() {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const isInitialCloudSyncRef = useRef(false);
 
-  // PWA Install Prompt state
+  // PWA Install Prompt state — only worth showing on phones, not desktop browsers
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const [jobs, setJobs] = useState(() => {
     try {
@@ -841,8 +842,8 @@ export default function App() {
       {/* MAIN CONTENT */}
       <main className="flex-1 p-3 overflow-y-auto space-y-3 pb-24">
         
-        {/* PWA INSTALL BANNER IF AVAILABLE */}
-        {deferredInstallPrompt && !isAppInstalled && (
+        {/* PWA INSTALL BANNER IF AVAILABLE (mobile only — desktop browsers can trigger this too but it's not useful there) */}
+        {isMobileDevice && deferredInstallPrompt && !isAppInstalled && (
           <div className="bg-[#dcfce7] border-2 border-[#22c55e] p-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-lg bg-[#22c55e] text-white flex items-center justify-center font-black shrink-0">
